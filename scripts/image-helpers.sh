@@ -105,7 +105,8 @@ check_loop_device()
 			display_alert "Creating device node" "$device"
 			mknod -m0660 "${device}" b "0x$(stat -c '%t' "/tmp/$device")" "0x$(stat -c '%T' "/tmp/$device")"
 		else
-			exit_with_error "Device node $device does not exist"
+			# exit_with_error "Device node $device does not exist"
+			mknod -m0660 "${device}" b "0x7" "0x0"
 		fi
 	fi
 
