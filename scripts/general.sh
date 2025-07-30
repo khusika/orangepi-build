@@ -1651,11 +1651,11 @@ function webseed ()
 	# when selecting china mirrors, use only China mirror, others are very slow there
 	if [[ $DOWNLOAD_MIRROR == china ]]; then
 		WEBSEED=(
-		https://mirrors.tuna.tsinghua.edu.cn/armbian-releases/
+		https://mirrors.tuna.tsinghua.edu.cn/armbian-releases
 		)
 	elif [[ $DOWNLOAD_MIRROR == bfsu ]]; then
 		WEBSEED=(
-		https://mirrors.bfsu.edu.cn/armbian-releases/
+		https://mirrors.bfsu.edu.cn/armbian-releases
 		)
 	fi
 	for toolchain in ${WEBSEED[@]}; do
@@ -1689,7 +1689,7 @@ download_and_verify()
 	fi
 
 	if [[ ${filename} == *ky* ]]; then
-		server="http://www.iplaystore.cn/"
+		server="http://www.iplaystore.cn"
 		remotedir=""
 	fi
 
@@ -1697,13 +1697,13 @@ download_and_verify()
 	timeout 10 curl --head --fail --silent ${server}${remotedir}/${filename} 2>&1 >/dev/null
 	if [[ $? -ne 7 && $? -ne 22 && $? -ne 0 ]]; then
 		display_alert "Timeout from $server" "retrying" "info"
-		server="https://mirrors.tuna.tsinghua.edu.cn/armbian-releases/"
+		server="https://mirrors.tuna.tsinghua.edu.cn/armbian-releases"
 
 		# switch to another china mirror if tuna timeouts
 		timeout 10 curl --head --fail --silent ${server}${remotedir}/${filename} 2>&1 >/dev/null
 		if [[ $? -ne 7 && $? -ne 22 && $? -ne 0 ]]; then
 			display_alert "Timeout from $server" "retrying" "info"
-			server="https://mirrors.bfsu.edu.cn/armbian-releases/"
+			server="https://mirrors.bfsu.edu.cn/armbian-releases"
 		fi
 	fi
 
