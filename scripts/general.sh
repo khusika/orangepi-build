@@ -1560,7 +1560,6 @@ prepare_host()
 			# download external Linaro compiler and missing special dependencies since they are needed for certain sources
 
 		local toolchains=(
-			"ky-toolchain-linux-glibc-x86_64-v1.0.1.tar.xz"
 			"gcc-linaro-aarch64-none-elf-4.8-2013.11_linux.tar.xz"
 			"gcc-linaro-arm-none-eabi-4.8-2014.04_linux.tar.xz"
 			"gcc-linaro-arm-linux-gnueabihf-4.8-2014.04_linux.tar.xz"
@@ -1574,6 +1573,10 @@ prepare_host()
 			"gcc-arm-11.2-2022.02-x86_64-arm-none-linux-gnueabihf.tar.xz"
 			"gcc-arm-11.2-2022.02-x86_64-aarch64-none-linux-gnu.tar.xz"
 			)
+
+		if [[ "${BOARDFAMILY}" == "ky" ]]; then
+		    toolchains+=("ky-toolchain-linux-glibc-x86_64-v1.0.1.tar.xz")
+		fi
 
 		USE_TORRENT_STATUS=${USE_TORRENT}
 		USE_TORRENT="no"
