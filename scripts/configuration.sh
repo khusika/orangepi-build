@@ -9,8 +9,8 @@
 
 [[ -z $VENDOR ]] && VENDOR="Orange Pi"
 [[ -z $ROOTPWD ]] && ROOTPWD="orangepi" # Must be changed @first login
-[[ -z $OPI_USERNAME ]] && OPI_USERNAME="orangepi" 
-[[ -z $OPI_PWD ]] && OPI_PWD="orangepi" 
+[[ -z $OPI_USERNAME ]] && OPI_USERNAME=$(awk -F: '$3 >= 1000 && $1 != "nobody" {print $1}' /etc/passwd)
+[[ -z $OPI_PWD ]] && OPI_PWD="orangepi"
 [[ -z $MAINTAINER ]] && MAINTAINER="Orange Pi" # deb signature
 [[ -z $MAINTAINERMAIL ]] && MAINTAINERMAIL="leeboby@aliyun.com" # deb signature
 [[ -z $DEB_COMPRESS ]] && DEB_COMPRESS="xz" # compress .debs with XZ by default. Use 'none' for faster/larger builds
@@ -19,7 +19,7 @@ USEALLCORES=yes # Use all CPU cores for compiling
 HOSTRELEASE=$(cat /etc/os-release | grep VERSION_CODENAME | cut -d"=" -f2)
 [[ -z $HOSTRELEASE ]] && HOSTRELEASE=$(cut -d'/' -f1 /etc/debian_version)
 [[ -z $EXIT_PATCHING_ERROR ]] && EXIT_PATCHING_ERROR="" # exit patching if failed
-[[ -z $HOST ]] && HOST="$BOARD" # set hostname to the board
+[[ -z $HOST ]] && HOST="orangepi"
 [[ -z $CHINA_DOWNLOAD_MIRROR ]] && CHINA_DOWNLOAD_MIRROR=huawei
 cd "${SRC}" || exit
 [[ -z "${ROOTFSCACHE_VERSION}" ]] && ROOTFSCACHE_VERSION=11
