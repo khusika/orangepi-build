@@ -1954,20 +1954,20 @@ install_docker() {
 		xenial|bionic|focal|jammy|noble)
 		distributor_id="ubuntu"
 		;;
+		*)
+		display_alert "Unsupported release for Docker installation" "${RELEASE}" "wrn"
+		return
+		;;
 	esac
 
-	#if [[ ${SELECTED_CONFIGURATION} == desktop ]]; then
-		mirror_url=https://repo.huaweicloud.com
-	#else
-	#	mirror_url=https://mirrors.aliyun.com
-	#fi
-
-	chroot "${SDCARD}" /bin/bash -c "curl -fsSL ${mirror_url}/docker-ce/linux/${distributor_id}/gpg | apt-key add -"
-	echo "deb [arch=${ARCH}] ${mirror_url}/docker-ce/linux/${distributor_id} ${RELEASE} stable" > "${SDCARD}"/etc/apt/sources.list.d/docker.list
+	chroot "${SDCARD}" /bin/bash -c "install -m 0755 -d /etc/apt/keyrings"
+	chroot "${SDCARD}" /bin/bash -c "curl -fsSL https://download.docker.com/linux/${distributor_id}/gpg -o /etc/apt/keyrings/docker.asc"
+	chroot "${SDCARD}" /bin/bash -c "chmod a+r /etc/apt/keyrings/docker.asc"
+	echo "deb [arch=${ARCH} signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/${distributor_id} ${RELEASE} stable" > "${SDCARD}"/etc/apt/sources.list.d/docker.list
 
 	chroot "${SDCARD}" /bin/bash -c "apt-get update"
-	chroot "${SDCARD}" /bin/bash -c "apt-get install -y -qq docker-ce docker-ce-cli containerd.io"
-	chroot "${SDCARD}" /bin/bash -c "sudo groupadd docker"
+	chroot "${SDCARD}" /bin/bash -c "apt-get install -y -qq docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin"
+	chroot "${SDCARD}" /bin/bash -c "getent group docker || groupadd docker"
 
 	run_on_sdcard "systemctl --no-reload disable docker.service"
 }
