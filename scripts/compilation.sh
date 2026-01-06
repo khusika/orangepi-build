@@ -506,6 +506,13 @@ CUSTOM_KERNEL_CONFIG
 		exit_with_error "Kernel was not built" "@host"
 	fi
 
+	if [[ ${BOARDFAMILY} == cix ]]; then
+		[[ -d ${SRC}/output/cix ]] && rm -rf ${SRC}/output/cix
+		mkdir -p ${SRC}/output/cix/ > /dev/null 2>&1
+		cp ${kerneldir}/arch/arm64/boot/Image ${SRC}/output/cix/
+		cp ${kerneldir}/arch/arm64/boot/dts/cix/sky1-*dtb ${SRC}/output/cix/
+	fi
+
 	# different packaging for 4.3+
 	if linux-version compare "${version}" ge 4.3; then
 		local kernel_packing="bindeb-pkg"
@@ -541,6 +548,8 @@ CUSTOM_KERNEL_CONFIG
 	rm -f linux-firmware-image-*.deb
 
 	rsync --remove-source-files -rq ./*.deb "${DEB_STORAGE}/" || exit_with_error "Failed moving kernel DEBs"
+
+	[[ $(type -t family_tweaks_kernel) == function ]] && family_tweaks_kernel
 
 	# store git hash to the file and create a change log
 	#HASHTARGET="${EXTER}/cache/hash"$([[ ${BETA} == yes ]] && echo "-beta")"/linux-image-${BRANCH}-${LINUXFAMILY}"
@@ -592,7 +601,12 @@ compile_firmware()
 	plugin_dir="orangepi-firmware${FULL}"
 	mkdir -p "${firmwaretempdir}/${plugin_dir}/lib/firmware"
 
-	[[ $IGNORE_UPDATES != yes ]] && fetch_from_repo "https://github.com/orangepi-xunlong/firmware" "${EXTER}/cache/sources/orangepi-firmware-git" "branch:master"
+	if [[ $GITEE_SERVER == yes ]]; then
+		[[ $IGNORE_UPDATES != yes ]] && fetch_from_repo "https://gitee.com/orangepi-xunlong/firmware" "${EXTER}/cache/sources/orangepi-firmware-git" "branch:master"
+	else
+		[[ $IGNORE_UPDATES != yes ]] && fetch_from_repo "https://github.com/orangepi-xunlong/firmware" "${EXTER}/cache/sources/orangepi-firmware-git" "branch:master"
+	fi
+
 	if [[ -n $FULL ]]; then
 		[[ $IGNORE_UPDATES != yes ]] && fetch_from_repo "$MAINLINE_FIRMWARE_SOURCE" "${EXTER}/cache/sources/linux-firmware-git" "branch:master"
 		# cp : create hardlinks
@@ -645,8 +659,13 @@ compile_orangepi-zsh()
 	orangepi_zsh_dir=orangepi-zsh_${REVISION}_all
 	display_alert "Building deb" "orangepi-zsh" "info"
 
-	[[ $IGNORE_UPDATES != yes ]] && fetch_from_repo "https://github.com/robbyrussell/oh-my-zsh" "${EXTER}/cache/sources/oh-my-zsh" "branch:master"
-	[[ $IGNORE_UPDATES != yes ]] && fetch_from_repo "https://github.com/mroth/evalcache" "${EXTER}/cache/sources/evalcache" "branch:master"
+	if [[ $GITEE_SERVER == yes ]]; then
+		[[ $IGNORE_UPDATES != yes ]] && fetch_from_repo "https://gitee.com/orangepi-xunlong/oh-my-zsh" "${EXTER}/cache/sources/oh-my-zsh" "branch:master"
+		[[ $IGNORE_UPDATES != yes ]] && fetch_from_repo "https://gitee.com/orangepi-xunlong/evalcache" "${EXTER}/cache/sources/evalcache" "branch:master"
+	else
+		[[ $IGNORE_UPDATES != yes ]] && fetch_from_repo "https://github.com/robbyrussell/oh-my-zsh" "${EXTER}/cache/sources/oh-my-zsh" "branch:master"
+		[[ $IGNORE_UPDATES != yes ]] && fetch_from_repo "https://github.com/mroth/evalcache" "${EXTER}/cache/sources/evalcache" "branch:master"
+	fi
 
 	mkdir -p "${tmp_dir}/${orangepi_zsh_dir}"/{DEBIAN,etc/skel/,etc/oh-my-zsh/,/etc/skel/.oh-my-zsh/cache}
 

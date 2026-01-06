@@ -227,7 +227,7 @@ create_sources_list()
 	EOF
 	;;
 
-	xenial|bionic|focal|hirsute|impish|jammy|noble)
+	xenial|bionic|focal|hirsute|impish|jammy)
 	cat <<-EOF > "${basedir}"/etc/apt/sources.list
 	deb http://${UBUNTU_MIRROR} $release main restricted universe multiverse
 	#deb-src http://${UBUNTU_MIRROR} $release main restricted universe multiverse
@@ -240,6 +240,20 @@ create_sources_list()
 
 	deb http://${UBUNTU_MIRROR} ${release}-backports main restricted universe multiverse
 	#deb-src http://${UBUNTU_MIRROR} ${release}-backports main restricted universe multiverse
+	EOF
+	;;
+
+	noble)
+	distro="ubuntu"
+	# Drop deboostrap sources leftovers
+	rm -f "${basedir}/etc/apt/sources.list"
+
+	cat <<- EOF > "${basedir}/etc/apt/sources.list.d/${distro}.sources"
+	Types: deb
+	URIs: http://${UBUNTU_MIRROR}
+	Suites: ${release} ${release}-security ${release}-updates ${release}-backports
+	Components: main restricted universe multiverse
+	Signed-By: /usr/share/keyrings/ubuntu-archive-keyring.gpg
 	EOF
 	;;
 
@@ -1425,7 +1439,8 @@ prepare_host()
 	nfs-kernel-server ntpdate p7zip-full parted patchutils pigz pixz          \
 	pkg-config pv python3-dev python3-distutils qemu-user-static rsync swig   \
 	systemd-container u-boot-tools udev unzip uuid-dev wget whiptail zip      \
-	zlib1g-dev gcc-riscv64-linux-gnu"
+	zlib1g-dev gcc-riscv64-linux-gnu uuid-runtime fatattr git-lfs scons       \
+	mtools"
 
   if [[ $(dpkg --print-architecture) == amd64 ]]; then
 
@@ -1574,7 +1589,11 @@ prepare_host()
 			"gcc-arm-11.2-2022.02-x86_64-aarch64-none-linux-gnu.tar.xz"
 			)
 
-		if [[ "${BOARDFAMILY}" == "rockchip-rk3588" ]]; then
+		if [[ "${BOARDFAMILY}" == "cix" ]]; then
+		    toolchains+=(
+				"arm-gnu-toolchain-12.3.rel1-x86_64-aarch64-none-linux-gnu.tar.xz"
+			)
+		elif [[ "${BOARDFAMILY}" == "rockchip-rk3588" ]]; then
 		    toolchains+=(
 				"arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-linux-gnueabihf.tar.xz"
 				"arm-gnu-toolchain-15.2.rel1-x86_64-aarch64-none-linux-gnu.tar.xz"
@@ -1656,11 +1675,16 @@ function webseed ()
 	# when selecting china mirrors, use only China mirror, others are very slow there
 	if [[ $DOWNLOAD_MIRROR == china ]]; then
 		WEBSEED=(
-		https://mirrors.tuna.tsinghua.edu.cn/armbian-releases
+		https://mirrors.tuna.tsinghua.edu.cn/armbian-releases/
 		)
 	elif [[ $DOWNLOAD_MIRROR == bfsu ]]; then
 		WEBSEED=(
-		https://mirrors.bfsu.edu.cn/armbian-releases
+		https://mirrors.bfsu.edu.cn/armbian-releases/
+		)
+	fi
+	if [[ ${filename} == *ky* ]] || [[ ${filename} == *arm-gnu-toolchain-12* ]]; then
+		WEBSEED=(
+		http://www.iplaystore.cn/upload/
 		)
 	fi
 	for toolchain in ${WEBSEED[@]}; do
@@ -1683,12 +1707,12 @@ download_and_verify()
 	local server
 
 	case "${filename}" in
-		arm-gnu-toolchain*)
+		arm-gnu-toolchain-15*)
 			server="https://developer.arm.com/-/media/Files/downloads/gnu/15.2.rel1/binrel"
 			remotedir=""
 			;;
-		*ky*)
-			server="http://www.iplaystore.cn"
+		arm-gnu-toolchain-12*|*ky*)
+			server="http://www.iplaystore.cn/upload/"
 			remotedir=""
 			;;
 		*)
@@ -1715,16 +1739,15 @@ download_and_verify()
 		timeout 10 curl --head --fail --silent ${server}${remotedir}/${filename} 2>&1 >/dev/null
 		if [[ $? -ne 7 && $? -ne 22 && $? -ne 0 ]]; then
 			display_alert "Timeout from $server" "retrying" "info"
-			server="https://mirrors.tuna.tsinghua.edu.cn/armbian-releases"
+			server="https://mirrors.tuna.tsinghua.edu.cn/armbian-releases/"
 			# switch to another china mirror if tuna timeouts
 			timeout 10 curl --head --fail --silent ${server}${remotedir}/${filename} 2>&1 >/dev/null
 			if [[ $? -ne 7 && $? -ne 22 && $? -ne 0 ]]; then
 				display_alert "Timeout from $server" "retrying" "info"
-				server="https://mirrors.bfsu.edu.cn/armbian-releases"
+				server="https://mirrors.bfsu.edu.cn/armbian-releases/"
 			fi
 		fi
 	fi
-
 
 	# check if file exists on remote server before running aria2 downloader
 	[[ ! `timeout 10 curl --head --fail --silent ${server}${remotedir}/${filename}` ]] && return
@@ -1906,6 +1929,15 @@ show_checklist_variables ()
 	done
 }
 
+get_orangepi_url()
+{
+	if [[ ${GITEE_SERVER} == yes ]]; then
+		echo "https://gitee.com/orangepi-xunlong"
+	else
+		echo "https://github.com/orangepi-xunlong"
+	fi
+}
+
 install_wiringop()
 {
 	install_deb_chroot "$EXTER/cache/debs/${ARCH}/wiringpi-2.58-1.deb"
@@ -1913,8 +1945,9 @@ install_wiringop()
 
 	if [[ ${IGNORE_UPDATES} != yes ]]; then
 
-		fetch_from_repo "https://github.com/orangepi-xunlong/wiringOP.git" "${EXTER}/cache/sources/wiringOP" "branch:next" "yes"
-		fetch_from_repo "https://github.com/orangepi-xunlong/wiringOP-Python.git" "${EXTER}/cache/sources/wiringOP-Python" "branch:next" "yes"
+		local url=$(get_orangepi_url)
+		fetch_from_repo "${url}/wiringOP.git" "${EXTER}/cache/sources/wiringOP" "branch:next" "yes"
+		fetch_from_repo "${url}/wiringOP-Python.git" "${EXTER}/cache/sources/wiringOP-Python" "branch:next" "yes"
 
 	fi
 
