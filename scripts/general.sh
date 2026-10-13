@@ -1595,8 +1595,8 @@ prepare_host()
 			)
 		elif [[ "${BOARDFAMILY}" == "rockchip-rk3588" ]]; then
 		    toolchains+=(
-				"arm-gnu-toolchain-15.2.rel1-x86_64-arm-none-linux-gnueabihf.tar.xz"
-				"arm-gnu-toolchain-15.2.rel1-x86_64-aarch64-none-linux-gnu.tar.xz"
+				"arm-gnu-toolchain-15.3.rel2-x86_64-arm-none-linux-gnueabihf.tar.xz"
+				"arm-gnu-toolchain-15.3.rel2-x86_64-aarch64-none-linux-gnu.tar.xz"
 			)
 		elif [[ "${BOARDFAMILY}" == "ky" ]]; then
 		    toolchains+=("ky-toolchain-linux-glibc-x86_64-v1.0.1.tar.xz")
@@ -1708,7 +1708,7 @@ download_and_verify()
 
 	case "${filename}" in
 		arm-gnu-toolchain-15*)
-			server="https://developer.arm.com/-/media/Files/downloads/gnu/15.2.rel1/binrel"
+			server="https://gitlab.arm.com/api/v4/projects/tooling%2Fgnu-toolchains-for-arm/packages/generic/gnu-toolchain/15.3.rel2"
 			remotedir=""
 			;;
 		arm-gnu-toolchain-12*|*ky*)
