@@ -98,6 +98,12 @@ prepare_board() {
 			BOARDFAMILY=rk3399
 			;;
 		orangepi5|orangepicm5|orangepicm5-tablet|orangepi5b|orangepi5plus|orangepiaimax|orangepi5pro|orangepi5max|orangepi5ultra|orangepitab|orangepi900)
+			if [[ $BRANCH == next ]]; then
+				amixer -c rockchipes8388 cset name='Output 1 Playback Volume' 32
+				amixer -c rockchipes8388 cset name='Capture Digital Volume' 192
+				amixer -c rockchipes8388 cset name='Mic PGA Volume' 8
+			fi
+
 			[[ $BOARD =~ orangepi5|orangepi5b ]] && echo host > /sys/kernel/debug/usb/fc000000.usb/mode
 			if [[ $BOARD =~ orangepicm5 ]]; then
 				while true; do
@@ -217,7 +223,7 @@ prepare_board() {
 				        --baudrate 1500000 --patchram /lib/firmware/SYN43711A0.hcd /dev/ttyS7 &
 			fi
 			;;
-		orangepi6plus)
+		orangepi6plus|orangepi6)
 			if [ ! -e /dev/dma_heap/linux,cma ]; then
 				ln -s /dev/dma_heap/reserved /dev/dma_heap/linux,cma
 			fi
@@ -469,7 +475,7 @@ prepare_board() {
 			amixer -c 1 cset name='ADCL PGA Volume' 10 >/dev/null 2>&1
 			amixer -c 1 cset name='ADCR PGA Volume' 10 >/dev/null 2>&1
 			;;
-		orangepizero3w)
+		orangepizero3w|orangepizero4)
 			echo usb_host > /sys/devices/platform/soc@3000000/10.usbc0/otg_role
 			(while [[ ! -e /proc/bluetooth/sleep/btwrite ]]; do sleep 1; done; echo 1 > /proc/bluetooth/sleep/btwrite; \
 				/usr/bin/hciattach_opi -n -s 1500000 /dev/ttyS1 aic) &

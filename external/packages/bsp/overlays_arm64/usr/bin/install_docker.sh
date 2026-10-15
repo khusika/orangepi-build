@@ -4,7 +4,7 @@ distributor_id=$(lsb_release -is | tr '[:upper:]' '[:lower:]')
 
 sudo apt-get remove -y docker.io docker-doc docker-compose podman-docker containerd runc
 sudo apt-get update
-sudo apt-get install -y apt-transport-https ca-certificates curl gnupg2 software-properties-common
+sudo apt-get install -y apt-transport-https ca-certificates curl gnupg2
 
 sudo install -m 0755 -d /etc/apt/keyrings
 curl -fsSL "https://download.docker.com/linux/${distributor_id}/gpg" | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
