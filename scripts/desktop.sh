@@ -180,7 +180,10 @@ install_ppa_prerequisites() {
 
 	# Myy : TODO Try to find a way to install this package only when
 	# we encounter a PPA.
-	run_on_sdcard "DEBIAN_FRONTEND=noninteractive apt-get install -yqq software-properties-common"
+	# software-properties-common removed from Debian 13+
+	if [[ $RELEASE != trixie ]]; then
+		run_on_sdcard "DEBIAN_FRONTEND=noninteractive apt-get install -yqq software-properties-common"
+	fi
 
 }
 
@@ -256,7 +259,8 @@ add_desktop_package_sources() {
 
 	ls -l "${SDCARD}/usr/share/keyrings" >> "${DEST}"/${LOG_SUBPATH}/install.log
 	ls -l "${SDCARD}/etc/apt/sources.list.d" >> "${DEST}"/${LOG_SUBPATH}/install.log
-	cat "${SDCARD}/etc/apt/sources.list" >> "${DEST}"/${LOG_SUBPATH}/install.log
+	[[ -f "${SDCARD}/etc/apt/sources.list" ]] && cat "${SDCARD}/etc/apt/sources.list" >> "${DEST}"/${LOG_SUBPATH}/install.log
+	cat "${SDCARD}/etc/apt/sources.list.d/"*.list "${SDCARD}/etc/apt/sources.list.d/"*.sources 2>/dev/null >> "${DEST}"/${LOG_SUBPATH}/install.log
 
 }
 
@@ -302,10 +306,35 @@ desktop_postinstall ()
 		EOF
 	fi
 
-	#mkdir -p /etc/gdm3
-	#cat <<-EOF > /etc/gdm3/custom.conf
-	#[daemon]
-	#AutomaticLoginEnable = true
-	#AutomaticLogin = $RealUserName
-	#EOF
+	# Debian uses daemon.conf; Ubuntu uses custom.conf. Preserve the other
+	# settings and replace autologin keys only within the [daemon] section.
+	local gdm_config gdm_autologin=true
+	[[ ${DESKTOP_AUTOLOGIN} == no ]] && gdm_autologin=false
+	for gdm_config in "${SDCARD}/etc/gdm3/daemon.conf" "${SDCARD}/etc/gdm3/custom.conf"; do
+		[[ -f ${gdm_config} ]] || continue
+		local gdm_contents
+		gdm_contents=$(awk -v enabled="${gdm_autologin}" -v username="${OPI_USERNAME}" '
+			/^[[:space:]]*\[/ {
+				in_daemon = ($0 ~ /^[[:space:]]*\[daemon\][[:space:]]*$/)
+				if (in_daemon) {
+					print
+					if (!seen_daemon++) {
+						print "AutomaticLoginEnable=" enabled
+						print "AutomaticLogin=" username
+					}
+					next
+				}
+			}
+			in_daemon && /^[[:space:]]*#?[[:space:]]*AutomaticLogin(Enable)?[[:space:]]*=/ { next }
+			{ print }
+			END {
+				if (!seen_daemon) {
+					print "[daemon]"
+					print "AutomaticLoginEnable=" enabled
+					print "AutomaticLogin=" username
+				}
+			}
+		' "${gdm_config}") || return 1
+		printf '%s\n' "${gdm_contents}" > "${gdm_config}" || return 1
+	done
 }

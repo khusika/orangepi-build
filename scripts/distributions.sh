@@ -14,8 +14,32 @@
 # install_distribution_specific
 # post_debootstrap_tweaks
 
+install_overlayroot_support()
+{
+	display_alert "Installing overlayroot support" "" "info"
 
+	if [[ "$RELEASE" =~ "bookworm"|"bullseye"|"trixie" ]]; then
+		cat <<-EOF > "${SDCARD}"/usr/share/initramfs-tools/hooks/custom_overlayroot
+		#!/bin/sh
+		. /usr/share/initramfs-tools/hook-functions
+		copy_exec /bin/grep /bin
+		copy_exec /bin/mount /bin
+		EOF
+		chmod +x "${SDCARD}"/usr/share/initramfs-tools/hooks/custom_overlayroot
+	fi
 
+	# Install overlayroot package based on release
+	if [[ $RELEASE =~ "jammy"|"focal"|"bookworm"|"noble"|"plucky"|"trixie"|"resolute" ]]; then
+		run_on_sdcard "apt-get -y -qq install overlayroot"
+		# Patch APT hook for trixie/resolute: mke2fs copy_exec may fail
+		#if [[ $RELEASE =~ "trixie" ]]; then
+		#	run_on_sdcard "sed -i 's/copy_exec \/sbin\/mke2fs \/sbin/copy_exec \/sbin\/mke2fs \/sbin || true/' /usr/share/initramfs-tools/hooks/overlayroot"
+		#fi
+	elif [[ $RELEASE == "bullseye" ]]; then
+		run_on_sdcard "apt-get -y -qq install cryptsetup"
+		dpkg_install_deb_chroot "${EXTER}/cache/debs/${ARCH}/overlayroot_0.47ubuntu1_all.deb"
+	fi
+}
 
 install_common()
 {
@@ -460,6 +484,9 @@ POST_INSTALL_KERNEL_DEBS
 	[[ -f "${SDCARD}"/usr/bin/gnome-session ]] && sed -i "s/user-session.*/user-session=ubuntu-wayland/" ${SDCARD}/etc/lightdm/lightdm.conf.d/22-orangepi-autologin.conf > /dev/null 2>&1
 	[[ -f "${SDCARD}"/usr/bin/startplasma-x11 ]] && sed -i "s/user-session.*/user-session=plasma-x11/" ${SDCARD}/etc/lightdm/lightdm.conf.d/22-orangepi-autologin.conf
 
+	# install overlayroot support if enabled
+	[[ $enable_overlayroot == yes ]] && install_overlayroot_support
+
 	call_extension_method "post_family_tweaks" << 'FAMILY_TWEAKS'
 *customize the tweaks made by $LINUXFAMILY-specific family_tweaks*
 It is run after packages are installed in the rootfs, but before enabling additional services.
@@ -524,12 +551,17 @@ FAMILY_TWEAKS
 		# add serial console to secure tty list
 		[ -z "$(grep -w '^${array[0]}' "${SDCARD}"/etc/securetty 2> /dev/null)" ] && \
 		echo "${array[0]}" >>  "${SDCARD}"/etc/securetty
+		# Serial login must work even when Plymouth never exits without a display.
+		# Ordering dependencies cannot be removed with a drop-in; copy the full unit.
+		mkdir -p "${SDCARD}/etc/systemd/system"
+		cp "${SDCARD}"/lib/systemd/system/serial-getty@.service \
+			"${SDCARD}/etc/systemd/system/serial-getty@${array[0]}.service"
+		sed -i '/^After=/s/\bplymouth-quit-wait\.service\b//g' \
+			"${SDCARD}/etc/systemd/system/serial-getty@${array[0]}.service"
 		if [[ ${array[1]} != "115200" && -n ${array[1]} ]]; then
-			# make a copy, fix speed and enable
-			cp "${SDCARD}"/lib/systemd/system/serial-getty@.service \
-			"${SDCARD}/lib/systemd/system/serial-getty@${array[0]}.service"
+			# adjust the serial console speed
 			sed -i "s/--keep-baud 115200/--keep-baud ${array[1]},115200/" \
-			"${SDCARD}/lib/systemd/system/serial-getty@${array[0]}.service"
+			"${SDCARD}/etc/systemd/system/serial-getty@${array[0]}.service"
 		fi
 		chroot "${SDCARD}" /bin/bash -c "systemctl daemon-reload" >> "${DEST}"/${LOG_SUBPATH}/install.log 2>&1
 		chroot "${SDCARD}" /bin/bash -c "systemctl --no-reload enable serial-getty@${array[0]}.service" \
@@ -742,7 +774,19 @@ install_distribution_specific()
 
 		;;
 
-	bionic|focal|hirsute|impish|jammy|noble)
+	trixie)
+
+			# remove doubled uname from motd
+			[[ -f "${SDCARD}"/etc/update-motd.d/10-uname ]] && rm "${SDCARD}"/etc/update-motd.d/10-uname
+			# rc.local is not existing but one might need it
+			install_rclocal
+			# fix missing versioning
+			[[ $(grep -L "VERSION_ID=" "${SDCARD}"/etc/os-release) ]] && echo 'VERSION_ID="13"' >> "${SDCARD}"/etc/os-release
+			[[ $(grep -L "VERSION=" "${SDCARD}"/etc/os-release) ]] && echo 'VERSION="13 (trixie)"' >> "${SDCARD}"/etc/os-release
+
+		;;
+
+	bionic|focal|hirsute|impish|jammy|noble|plucky|resolute)
 
 			# by using default lz4 initrd compression leads to corruption, go back to proven method
 			sed -i "s/^COMPRESS=.*/COMPRESS=gzip/" "${SDCARD}"/etc/initramfs-tools/initramfs.conf
